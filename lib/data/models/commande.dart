@@ -1,29 +1,21 @@
-import 'dart:convert';
-
 import 'package:couturio/data/models/paiement.dart';
 
-enum StatutCommande { enAttente, enCours, termine, livre }
+enum StatutCommande { enAttente, enCours, termine, livre, annulee }
 
 class Commande {
   final int? id;
   final int clientId;
-  final int? mesureId; // Optionnel si la commande utilise des mensurations existantes
+  final int? mesureId;
   final List<Paiement> paiements;
-  final String? modele; // Nom ou description du modèle
-  final String? description; // description de la commande
-
-  final String? photoModele; // Chemin local ou URL
+  final String? modele;
+  final String? description;
+  final String? photoModele;
   final StatutCommande statut;
-
   final DateTime dateCreation;
   final DateTime? dateLivraisonPrevue;
-  final DateTime? dateLivraison; // Optionnel
-
-  final double prixTotal; // prix total de la commande
-
-  final String? notes; // champ libre pour instructions spéciales
-
- 
+  final DateTime? dateLivraison;
+  final double prixTotal;
+  final String? notes;
 
   Commande({
     this.id,
@@ -39,20 +31,17 @@ class Commande {
     required this.prixTotal,
     this.notes,
     List<Paiement>? paiements,
-  }) : dateCreation = dateCreation ?? DateTime.now(),
-       paiements = paiements ?? [];
+  })  : dateCreation = dateCreation ?? DateTime.now(),
+        paiements = paiements ?? [];
 
-
-  // Calcul automatique du reste à payer
   double get resteAPayer {
     final totalPayes = paiements.fold<double>(
       0.0,
-      (sum, Paiement p) => sum + p.montant,
+          (sum, Paiement p) => sum + p.montant,
     );
     return prixTotal - totalPayes;
   }
 
-  // Conversion en Map pour SQLite
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -67,18 +56,10 @@ class Commande {
       'date_livraison': dateLivraison?.toIso8601String(),
       'prix_total': prixTotal,
       'notes': notes,
-      'paiements': jsonEncode(paiements.map((p) => p.toMap()).toList()),
     };
   }
 
-  // Reconstruction depuis Map
   factory Commande.fromMap(Map<String, dynamic> map) {
-    final paiementsJson = map['paiements'] != null
-      ? (jsonDecode(map['paiements']) as List<dynamic>)
-          .map((p) => Paiement.fromMap(p))
-          .toList()
-      : <Paiement>[];
-
     return Commande(
       id: map['id'],
       clientId: map['client_id'],
@@ -98,10 +79,7 @@ class Commande {
           : null,
       prixTotal: map['prix_total'] ?? 0,
       notes: map['notes'],
-
-      paiements: paiementsJson,
+      paiements: [],
     );
   }
-
-
 }

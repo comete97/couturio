@@ -54,7 +54,7 @@ dependencies:
   fl_chart: ^0.68.0
 
   # UI / Fonts
-  google_fonts: ^6.2.1
+  google_fonts: ^8.0.0
 
 
 dev_dependencies:

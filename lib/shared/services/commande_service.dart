@@ -4,9 +4,10 @@ import 'package:couturio/shared/services/livraison_service.dart';
 
 class CommandeService {
   final CommandeRepository _repo;
-  final LivraisonService _livraisonService;
+  //final LivraisonService _livraisonService;
 
-  CommandeService(this._repo, this._livraisonService);
+  CommandeService(this._repo/*, this._livraisonService*/);
+
   // ------------------- CREATION -------------------
   Future<int> creerCommande(Commande commande) async {
     // Règle métier : une commande commence toujours en attente
@@ -19,9 +20,32 @@ class CommandeService {
       prixTotal: commande.prixTotal,
       notes: commande.notes,
       dateLivraisonPrevue: commande.dateLivraisonPrevue,
+      statut: StatutCommande.enAttente,
     );
 
     return _repo.insertCommande(cmd);
+  }
+
+  // ------------------- LECTURE -------------------
+  Future<List<Commande>> getAllCommandes() {
+    return _repo.getAllCommandes();
+  }
+
+  Future<Commande?> getCommandeById(int id) {
+    return _repo.getCommandeById(id);
+  }
+
+  Future<List<Commande>> getCommandesByClient(int clientId) {
+    return _repo.getCommandesByClient(clientId);
+  }
+
+  // ------------------- MODIFICATION -------------------
+  Future<int> updateCommande(Commande commande) {
+    return _repo.updateCommande(commande);
+  }
+
+  Future<int> supprimerCommande(int id) {
+    return _repo.deleteCommande(id);
   }
 
   // ------------------- STATUT -------------------
@@ -33,28 +57,44 @@ class CommandeService {
     return _repo.updateStatut(commandeId, StatutCommande.termine);
   }
 
+  Future<void> annulerCommande(int commandeId) {
+    return _repo.updateStatut(commandeId, StatutCommande.annulee);
+  }
+
+  // ------------------- REGLES DE TRANSITION -------------------
+  bool canStart(Commande commande) {
+    return commande.statut == StatutCommande.enAttente;
+  }
+
+  bool canFinish(Commande commande) {
+    return commande.statut == StatutCommande.enCours;
+  }
+
+  bool canDeliver(Commande commande) {
+    return commande.statut == StatutCommande.termine;
+  }
+
+  bool canCancel(Commande commande) {
+    return commande.statut == StatutCommande.enAttente ||
+        commande.statut == StatutCommande.enCours;
+  }
+  bool canEdit(Commande commande) {
+    return commande.statut == StatutCommande.enAttente ||
+        commande.statut == StatutCommande.enCours;
+  }
+  bool canDelete(Commande commande) {
+    return commande.statut == StatutCommande.enAttente ||
+        commande.statut == StatutCommande.annulee;
+  }
+
   // ---------------- LIVRAISON ----------------
-  Future<void> livrerCommande({
-    required int commandeId,
-    required int livraisonId,
-  }) async {
-    // 1. Récupérer la livraison
-    final livraison = await _livraisonService.getLivraisonById(livraisonId);
-    if (livraison == null) {
-      throw Exception("Livraison introuvable pour l'ID $livraisonId");
-    }
-
-    // 2. Marquer la livraison comme livrée
-    await _livraisonService.confirmerLivraison(livraison);
-
-    // 3. Mettre à jour le statut de la commande
+  Future<void> livrerCommande(int commandeId) async {
     await _repo.updateStatut(
       commandeId,
       StatutCommande.livre,
       dateLivraison: DateTime.now(),
     );
   }
-
 
   // ------------------- FINANCE -------------------
   double resteAPayer(Commande commande) {
@@ -69,6 +109,10 @@ class CommandeService {
   bool estEnRetard(Commande commande) {
     if (commande.dateLivraisonPrevue == null) return false;
     if (commande.dateLivraison != null) return false;
+    if (commande.statut == StatutCommande.livre ||
+        commande.statut == StatutCommande.annulee) {
+      return false;
+    }
 
     return DateTime.now().isAfter(commande.dateLivraisonPrevue!);
   }

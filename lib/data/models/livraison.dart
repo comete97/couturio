@@ -1,4 +1,4 @@
-enum StatutLivraison { enCours, livree }
+enum StatutLivraison { enCours, livree, annulee, echec, enAttente }
 enum TypeLivraison { standard, express, retraitAtelier }
 
 class Livraison {

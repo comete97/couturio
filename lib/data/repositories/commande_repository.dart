@@ -1,4 +1,3 @@
-//import 'dart:convert';
 import 'package:couturio/data/database/app_database.dart';
 import 'package:couturio/data/models/commande.dart';
 import 'package:couturio/data/models/paiement.dart';
@@ -6,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 class CommandeRepository {
   final AppDatabase _dbHelper = AppDatabase();
-  // ----------------------- INSERT -----------------------
+
   Future<int> insertCommande(Commande commande) async {
     final db = await _dbHelper.database;
     return await db.insert(
@@ -16,7 +15,6 @@ class CommandeRepository {
     );
   }
 
-  // ----------------------- GET ALL -----------------------
   Future<List<Commande>> getAllCommandes() async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -26,7 +24,6 @@ class CommandeRepository {
     return maps.map((m) => Commande.fromMap(m)).toList();
   }
 
-  // ----------------------- GET BY ID -----------------------
   Future<Commande?> getCommandeById(int id) async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -38,7 +35,6 @@ class CommandeRepository {
     return null;
   }
 
-  // ----------------------- GET BY CLIENT -----------------------
   Future<List<Commande>> getCommandesByClient(int clientId) async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -50,7 +46,6 @@ class CommandeRepository {
     return maps.map((m) => Commande.fromMap(m)).toList();
   }
 
-  // ----------------------- UPDATE -----------------------
   Future<int> updateCommande(Commande commande) async {
     final db = await _dbHelper.database;
     return await db.update(
@@ -61,7 +56,6 @@ class CommandeRepository {
     );
   }
 
-  // ----------------------- DELETE -----------------------
   Future<int> deleteCommande(int id) async {
     final db = await _dbHelper.database;
     return await db.delete(
@@ -71,7 +65,6 @@ class CommandeRepository {
     );
   }
 
-  // ----------------------- GET COMMANDES EN RETARD -----------------------
   Future<List<Commande>> getCommandesEnRetard() async {
     final db = await _dbHelper.database;
     final nowIso = DateTime.now().toIso8601String();
@@ -84,7 +77,6 @@ class CommandeRepository {
     return maps.map((m) => Commande.fromMap(m)).toList();
   }
 
-  // ----------------------- GET COMMANDES TERMINEES -----------------------
   Future<List<Commande>> getCommandesTerminees() async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -96,14 +88,8 @@ class CommandeRepository {
     return maps.map((m) => Commande.fromMap(m)).toList();
   }
 
-  // ----------------------- AJOUTER UN PAIEMENT -----------------------
   Future<int> addPaiement(Paiement paiement) async {
     final db = await _dbHelper.database;
-    final commande = await getCommandeById(paiement.commandeId);
-    if (commande != null) {
-      commande.paiements.add(paiement);
-      await updateCommande(commande);
-    }
     return await db.insert(
       'paiements',
       paiement.toMap(),
@@ -111,7 +97,6 @@ class CommandeRepository {
     );
   }
 
-  // ----------------------- GET PAIEMENTS D’UNE COMMANDE -----------------------
   Future<List<Paiement>> getPaiementsByCommande(int commandeId) async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -123,7 +108,6 @@ class CommandeRepository {
     return maps.map((m) => Paiement.fromMap(m)).toList();
   }
 
-  // ----------------------- FILTRES TEMPORRIELS -----------------------
   Future<List<Commande>> getCommandesDuJour() async {
     final db = await _dbHelper.database;
     final today = DateTime.now();
@@ -166,7 +150,6 @@ class CommandeRepository {
     return maps.map((m) => Commande.fromMap(m)).toList();
   }
 
-  // ------------------------- AUTRES METHODES UTILES -----------------------
   Future<List<Commande>> getCommandesSince(DateTime date) async {
     final db = await _dbHelper.database;
     final maps = await db.query(
@@ -183,12 +166,19 @@ class CommandeRepository {
     final maps = await db.rawQuery('SELECT DISTINCT client_id FROM commandes');
     return maps.map((m) => m['client_id'] as int).toList();
   }
-  Future<int> updateStatut(int commandeId, StatutCommande statut, {DateTime? dateLivraison}) async {
+
+  Future<int> updateStatut(
+      int commandeId,
+      StatutCommande statut, {
+        DateTime? dateLivraison,
+      }) async {
     final db = await _dbHelper.database;
     final Map<String, dynamic> updates = {'statut': statut.name};
+
     if (dateLivraison != null) {
       updates['date_livraison'] = dateLivraison.toIso8601String();
     }
+
     return await db.update(
       'commandes',
       updates,
@@ -196,5 +186,4 @@ class CommandeRepository {
       whereArgs: [commandeId],
     );
   }
-
 }

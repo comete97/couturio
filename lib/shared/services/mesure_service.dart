@@ -4,6 +4,8 @@ import 'package:couturio/data/repositories/mesure_repository.dart';
 class MesureService {
   final MesureRepository _repo = MesureRepository();
 
+  MesureService(MesureRepository mesureRepository);
+
   // ----------------------- AJOUTER OU METTRE À JOUR -----------------------
   /// Si le client a déjà une mesure, elle est mise à jour sinon une nouvelle est créée
   Future<int> saveMesure(Mesure mesure) async {

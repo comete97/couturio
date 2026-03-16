@@ -1,20 +1,41 @@
 import 'package:couturio/data/models/livraison.dart';
 import 'package:couturio/data/repositories/livraison_repository.dart';
+import 'package:couturio/shared/services/commande_service.dart';
+
+import '../../data/models/commande.dart';
 
 class LivraisonService {
-  final LivraisonRepository _repository = LivraisonRepository();
+  final LivraisonRepository _repository;
+  final CommandeService _commandeService;
+
+  LivraisonService(this._repository, this._commandeService);
 
   // ----------------------- CREATION -----------------------
   Future<int> creerLivraison({
     required int commandeId,
-    TypeLivraison type = TypeLivraison.standard,
+    required TypeLivraison type,
     String? livreur,
     String? instructions,
     String? notes,
-  }) {
+  }) async {
+    final existantes = await _repository.getLivraisonsByCommande(commandeId);
+    if (existantes.isNotEmpty) {
+      throw Exception("Une livraison existe déjà pour cette commande.");
+    }
+
+    final commande = await _commandeService.getCommandeById(commandeId);
+    if (commande == null) {
+      throw Exception("Commande introuvable.");
+    }
+
+    if (commande.statut != StatutCommande.termine) {
+      throw Exception("Seules les commandes terminées peuvent être livrées.");
+    }
+
     final livraison = Livraison(
       commandeId: commandeId,
       type: type,
+      statut: StatutLivraison.enCours,
       livreur: livreur,
       instructions: instructions,
       notes: notes,
@@ -23,7 +44,7 @@ class LivraisonService {
     return _repository.insertLivraison(livraison);
   }
 
-  // ----------------------- CONFIRMATION DE LIVRAISON -----------------------
+  // ----------------------- CONFIRMATION -----------------------
   Future<void> confirmerLivraison(Livraison livraison) async {
     final updated = Livraison(
       id: livraison.id,
@@ -39,6 +60,48 @@ class LivraisonService {
     );
 
     await _repository.updateLivraison(updated);
+    await _commandeService.livrerCommande(livraison.commandeId);
+  }
+
+  // ----------------------- ANNULATION -----------------------
+  Future<void> annulerLivraison(Livraison livraison) async {
+    final updated = Livraison(
+      id: livraison.id,
+      commandeId: livraison.commandeId,
+      statut: StatutLivraison.annulee,
+      dateLivraisonEffectuee: livraison.dateLivraisonEffectuee,
+      livreur: livraison.livreur,
+      type: livraison.type,
+      rappelEnvoye: livraison.rappelEnvoye,
+      confirmeParClient: livraison.confirmeParClient,
+      instructions: livraison.instructions,
+      notes: livraison.notes,
+    );
+
+    await _repository.updateLivraison(updated);
+  }
+
+  // ----------------------- ECHEC -----------------------
+  Future<void> marquerEchec(Livraison livraison) async {
+    final updated = Livraison(
+      id: livraison.id,
+      commandeId: livraison.commandeId,
+      statut: StatutLivraison.echec,
+      dateLivraisonEffectuee: livraison.dateLivraisonEffectuee,
+      livreur: livraison.livreur,
+      type: livraison.type,
+      rappelEnvoye: livraison.rappelEnvoye,
+      confirmeParClient: livraison.confirmeParClient,
+      instructions: livraison.instructions,
+      notes: livraison.notes,
+    );
+
+    await _repository.updateLivraison(updated);
+  }
+
+  // ----------------------- UPDATE -----------------------
+  Future<int> updateLivraison(Livraison livraison) {
+    return _repository.updateLivraison(livraison);
   }
 
   // ----------------------- RAPPEL -----------------------
@@ -88,5 +151,23 @@ class LivraisonService {
   // ----------------------- SUPPRESSION -----------------------
   Future<void> supprimerLivraison(int id) {
     return _repository.deleteLivraison(id);
+  }
+
+  // ----------------------- REGLES UI -----------------------
+  bool peutConfirmer(Livraison livraison) {
+    return livraison.statut == StatutLivraison.enCours;
+  }
+
+  bool peutAnnuler(Livraison livraison) {
+    return livraison.statut == StatutLivraison.enCours;
+  }
+
+  bool peutMarquerEchec(Livraison livraison) {
+    return livraison.statut == StatutLivraison.enCours;
+  }
+
+  bool peutSupprimer(Livraison livraison) {
+    return livraison.statut == StatutLivraison.annulee ||
+        livraison.statut == StatutLivraison.echec;
   }
 }
