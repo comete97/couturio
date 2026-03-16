@@ -12,6 +12,10 @@ import 'package:couturio/data/models/client.dart';
 import 'package:couturio/ui/clients/pages/client_detail_page.dart';
 import 'commande_form_page.dart';
 
+import 'package:couturio/data/models/paiement.dart';
+import 'package:couturio/shared/services/paiement_service.dart';
+import 'package:couturio/ui/paiements/pages/paiement_form_page.dart';
+
 class CommandeDetailPage extends StatefulWidget {
   final Commande commande;
 
@@ -27,6 +31,12 @@ class CommandeDetailPage extends StatefulWidget {
 class _CommandeDetailPageState extends State<CommandeDetailPage> {
   late Commande _commande;
   late CommandeService _commandeService;
+
+  late PaiementService _paiementService;
+  late Future<List<Paiement>> _paiementsFuture;
+  double _totalPaye = 0;
+  double _resteAPayer = 0;
+
   Client? _client;
 
   @override
@@ -34,6 +44,8 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
     super.initState();
     _commande = widget.commande;
     _commandeService = ServiceLocator().commandeService;
+    _paiementService = ServiceLocator().paiementService;
+    _loadPaiements();
     _loadClient();
   }
 
@@ -103,6 +115,7 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
         _commande = updated;
       });
     }
+    _reloadPaiements();
   }
 
   Future<void> _modifierCommande() async {
@@ -224,6 +237,108 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
 
     Navigator.pop(context, true);
   }
+
+  void _loadPaiements() {
+    _paiementsFuture = _paiementService.getPaiementsByCommande(_commande.id!);
+    _loadResumePaiements();
+  }
+
+  Future<void> _loadResumePaiements() async {
+    final total = await _paiementService.totalPayePourCommande(_commande.id!);
+    final reste = await _paiementService.resteAPayerPourCommande(_commande);
+
+    if (!mounted) return;
+
+    setState(() {
+      _totalPaye = total;
+      _resteAPayer = reste;
+    });
+  }
+
+  void _reloadPaiements() {
+    setState(() {
+      _loadPaiements();
+    });
+  }
+
+  Future<void> _ajouterPaiement() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaiementFormPage(commande: _commande),
+      ),
+    );
+
+    if (result == true) {
+      _reloadPaiements();
+    }
+  }
+
+  Future<void> _modifierPaiement(Paiement paiement) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaiementFormPage(
+          commande: _commande,
+          paiement: paiement,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      _reloadPaiements();
+    }
+  }
+
+  Future<void> _supprimerPaiement(Paiement paiement) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Supprimer le paiement"),
+        content: const Text("Voulez-vous vraiment supprimer ce paiement ?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Non"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Supprimer"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    await _paiementService.supprimerPaiement(paiement.id!);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Paiement supprimé")),
+    );
+
+    _reloadPaiements();
+  }
+
+
+  String _modePaiementLabel(ModePaiement mode) {
+    switch (mode) {
+      case ModePaiement.especes:
+        return "Espèces";
+      case ModePaiement.mobileMoney:
+        return "Mobile Money";
+      case ModePaiement.virement:
+        return "Virement";
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -501,6 +616,169 @@ class _CommandeDetailPageState extends State<CommandeDetailPage> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            ExpandableInfoCard(
+              title: "Paiements",
+              collapsedHeight: 220,
+              showToggle: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      children: [
+                        _ResumeRow(
+                          label: "Total commande",
+                          value: "${_commande.prixTotal.toStringAsFixed(0)} FCFA",
+                        ),
+                        const SizedBox(height: 8),
+                        _ResumeRow(
+                          label: "Total payé",
+                          value: "${_totalPaye.toStringAsFixed(0)} FCFA",
+                        ),
+                        const SizedBox(height: 8),
+                        _ResumeRow(
+                          label: "Reste à payer",
+                          value: "${_resteAPayer.toStringAsFixed(0)} FCFA",
+                          highlight: true,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: _ajouterPaiement,
+                      icon: const Icon(Icons.payments),
+                      label: const Text("Ajouter un paiement"),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  FutureBuilder<List<Paiement>>(
+                    future: _paiementsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      final paiements = snapshot.data ?? [];
+
+                      if (paiements.isEmpty) {
+                        return const Text(
+                          "Aucun paiement enregistré",
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textDark,
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        children: paiements.map((paiement) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "${paiement.montant.toStringAsFixed(0)} FCFA",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatDate(paiement.datePaiement),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Mode : ${_modePaiementLabel(paiement.modePaiement)}",
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  paiement.notes?.trim().isNotEmpty == true
+                                      ? paiement.notes!
+                                      : "Aucune note",
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () => _modifierPaiement(paiement),
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      label: const Text("Modifier"),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.red,
+                                      ),
+                                      onPressed: () => _supprimerPaiement(paiement),
+                                      icon: const Icon(Icons.delete, size: 18),
+                                      label: const Text("Supprimer"),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -575,6 +853,46 @@ class _ActionButton extends StatelessWidget {
       onPressed: onPressed,
       icon: Icon(icon),
       label: Text(label),
+    );
+  }
+}
+
+class _ResumeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+
+  const _ResumeRow({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = highlight ? AppColors.primary : AppColors.textDark;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              color: color,
+              fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            color: color,
+            fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

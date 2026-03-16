@@ -1,16 +1,58 @@
+import 'package:couturio/data/models/commande.dart';
 import 'package:couturio/data/models/paiement.dart';
 import 'package:couturio/data/repositories/paiement_repository.dart';
+import 'package:couturio/shared/services/commande_service.dart';
 
 class PaiementService {
-  final PaiementRepository _repo = PaiementRepository();
+  final PaiementRepository _repo;
+  final CommandeService _commandeService;
+
+  PaiementService(this._repo, this._commandeService);
 
   // ------------------- AJOUTER UN PAIEMENT -------------------
   Future<int> ajouterPaiement(Paiement paiement) async {
+    if (paiement.montant <= 0) {
+      throw Exception("Le montant du paiement doit être supérieur à zéro.");
+    }
+
+    final commande = await _commandeService.getCommandeById(paiement.commandeId);
+    if (commande == null) {
+      throw Exception("Commande introuvable.");
+    }
+
+    final dejaPaye = await totalPayePourCommande(paiement.commandeId);
+    final nouveauTotal = dejaPaye + paiement.montant;
+
+    if (nouveauTotal > commande.prixTotal) {
+      throw Exception("Le paiement dépasse le montant total de la commande.");
+    }
+
     return await _repo.insertPaiement(paiement);
   }
 
   // ------------------- MISE À JOUR -------------------
   Future<int> modifierPaiement(Paiement paiement) async {
+    if (paiement.montant <= 0) {
+      throw Exception("Le montant du paiement doit être supérieur à zéro.");
+    }
+
+    final commande = await _commandeService.getCommandeById(paiement.commandeId);
+    if (commande == null) {
+      throw Exception("Commande introuvable.");
+    }
+
+    final ancienPaiement = await _repo.getPaiementById(paiement.id!);
+    if (ancienPaiement == null) {
+      throw Exception("Paiement introuvable.");
+    }
+
+    final dejaPaye = await totalPayePourCommande(paiement.commandeId);
+    final totalCorrige = dejaPaye - ancienPaiement.montant + paiement.montant;
+
+    if (totalCorrige > commande.prixTotal) {
+      throw Exception("Le paiement dépasse le montant total de la commande.");
+    }
+
     return await _repo.updatePaiement(paiement);
   }
 
@@ -28,6 +70,16 @@ class PaiementService {
   Future<double> resteAPayer(int commandeId, double prixTotal) async {
     final totalPaye = await totalPayePourCommande(commandeId);
     return prixTotal - totalPaye;
+  }
+
+  Future<double> resteAPayerPourCommande(Commande commande) async {
+    final totalPaye = await totalPayePourCommande(commande.id!);
+    return commande.prixTotal - totalPaye;
+  }
+
+  Future<bool> estSoldee(Commande commande) async {
+    final reste = await resteAPayerPourCommande(commande);
+    return reste <= 0;
   }
 
   // ------------------- RÉCUPÉRATION -------------------
@@ -65,21 +117,19 @@ class PaiementService {
   }
 
   // ------------------- STATISTIQUES / RAPPORTS -------------------
-  /// Somme totale payée par un client sur toutes ses commandes
   Future<double> totalPayeParClient(int clientId) async {
     final paiements = await _repo.getPaiementsByClient(clientId);
     return paiements.fold<double>(0.0, (sum, p) => sum + p.montant);
   }
 
-  /// Moyenne des paiements par commande
   Future<double> moyennePaiementParCommande(int commandeId) async {
     final paiements = await _repo.getPaiementsByCommande(commandeId);
     if (paiements.isEmpty) return 0.0;
-    final total = paiements.fold(0.0, (sum, p) => sum + p.montant);
+
+    final total = paiements.fold<double>(0.0, (sum, p) => sum + p.montant);
     return total / paiements.length;
   }
 
-  /// Paiements récents (limit)
   Future<List<Paiement>> paiementsRecents({int limit = 10}) async {
     final allPaiements = await _repo.getAllPaiements();
     return allPaiements.take(limit).toList();

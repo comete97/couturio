@@ -9,6 +9,11 @@ import 'package:couturio/ui/clients/pages/client_form_page.dart';
 import 'package:couturio/ui/commandes/pages/commande_list_page.dart';
 import 'package:couturio/ui/livraisons/pages/livraison_list_page.dart';
 import 'package:couturio/ui/common/utils/bottom_nav_helper.dart';
+import 'package:couturio/ui/paiements/pages/paiement_list_page.dart';
+
+import 'package:couturio/ui/paiements/pages/paiement_form_page.dart';
+import 'package:couturio/ui/paiements/pages/select_commande_for_paiement_page.dart';
+import 'package:couturio/data/models/commande.dart';
 
 class DashboardPage extends StatefulWidget {
   final bool showBottomNav;
@@ -100,6 +105,30 @@ class _DashboardPageState extends State<DashboardPage> {
         content: Text("Choisissez d’abord un client pour créer une commande."),
       ),
     );
+  }
+
+  Future<void> _goToNewPaiement() async {
+    final Commande? commande = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SelectCommandeForPaiementPage(),
+      ),
+    );
+
+    if (commande == null || !mounted) return;
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PaiementFormPage(commande: commande),
+      ),
+    );
+
+    if (result == true) {
+      setState(() {
+        _loadDashboard();
+      });
+    }
   }
 
   @override
@@ -289,10 +318,30 @@ class _DashboardPageState extends State<DashboardPage> {
                       icon: Icons.straighten,
                       onTap: _goToClients,
                     ),
+
                     _QuickActionChip(
                       label: "Créer commande",
                       icon: Icons.receipt_long,
                       onTap: _showChooseClientMessage,
+                    ),
+
+                    _QuickActionChip(
+                      label: "Voir paiements",
+                      icon: Icons.payments_outlined,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PaiementListPage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    _QuickActionChip(
+                      label: "Ajouter paiement",
+                      icon: Icons.payments_outlined,
+                      onTap: _goToNewPaiement,
                     ),
                   ],
                 ),

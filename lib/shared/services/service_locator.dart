@@ -9,6 +9,9 @@ import 'package:couturio/shared/services/commande_service.dart';
 import 'package:couturio/shared/services/livraison_service.dart';
 import 'package:couturio/data/repositories/livraison_repository.dart';
 
+import 'package:couturio/data/repositories/paiement_repository.dart';
+import 'package:couturio/shared/services/paiement_service.dart';
+
 import 'package:couturio/data/repositories/dashboard_repository.dart';
 import 'package:couturio/shared/services/dashboard_service.dart';
 
@@ -27,6 +30,8 @@ class ServiceLocator {
   late final MesureRepository mesureRepository;
   late final LivraisonRepository livraisonRepository;
   late final DashboardRepository dashboardRepository;
+  late final PaiementRepository paiementRepository;
+
 
   /// Services
   late final ClientService clientService;
@@ -34,6 +39,8 @@ class ServiceLocator {
   late final CommandeService commandeService;
   late final LivraisonService livraisonService;
   late final DashboardService dashboardService;
+  late final PaiementService paiementService;
+
 
   /// Initialisation globale
   void init() {
@@ -58,6 +65,13 @@ class ServiceLocator {
 
     livraisonService = LivraisonService(
       livraisonRepository,
+      commandeService,
+    );
+
+    paiementRepository = PaiementRepository();
+
+    paiementService = PaiementService(
+      paiementRepository,
       commandeService,
     );
 

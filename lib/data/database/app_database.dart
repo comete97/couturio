@@ -107,6 +107,7 @@ class AppDatabase {
         montant REAL NOT NULL,
         date_paiement TEXT NOT NULL,
         notes TEXT,
+        mode_paiement TEXT NOT NULL DEFAULT 'especes',
         FOREIGN KEY(commande_id) REFERENCES commandes(id) ON DELETE CASCADE
       )
     ''');
