@@ -506,8 +506,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
 
                 return ExpandableInfoCard(
                   title: "Commandes",
-                  collapsedHeight: 170,
-                  showToggle: commandes.length > 1,
+                  collapsedHeight: 260,
+                  showToggle: commandes.isNotEmpty,
                   child: commandes.isEmpty
                       ? const Text(
                     "Aucune commande enregistrée",
@@ -517,67 +517,115 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                     ),
                   )
                       : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: commandes.map((commande) {
+                    children: List.generate(commandes.length, (index) {
+                      final commande = commandes[index];
+                      final isLast = index == commandes.length - 1;
+
                       return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
+                        onTap: () async {
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => CommandeDetailPage(commande: commande),
                             ),
                           );
+
+                          if (result == true) {
+                            _reloadCommandes();
+                          }
                         },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                commande.modele?.isNotEmpty == true
-                                    ? commande.modele!
-                                    : "Modèle non renseigné",
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textDark,
-                                ),
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  if (!isLast)
+                                    Container(
+                                      width: 2,
+                                      height: 110,
+                                      color: AppColors.primary.withOpacity(0.35),
+                                    ),
+                                ],
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Prix total : ${commande.prixTotal.toStringAsFixed(0)} FCFA",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.textDark,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        commande.modele?.isNotEmpty == true
+                                            ? commande.modele!
+                                            : "Modèle non renseigné",
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _formatDate(commande.dateCreation),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        "Prix total : ${commande.prixTotal.toStringAsFixed(0)} FCFA",
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Livraison prévue : ${_formatDate(commande.dateLivraisonPrevue)}",
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      StatutCommandeBadge(
+                                        statut: commande.statut,
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Livraison prévue : ${_formatDate(commande.dateLivraisonPrevue)}",
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              StatutCommandeBadge(
-                                statut: commande.statut,
                               ),
                             ],
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ),
                 );
               },
             ),
-
           ],
         ),
       ),
